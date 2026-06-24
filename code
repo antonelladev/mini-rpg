@@ -1,0 +1,235 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+
+using namespace std;
+
+// ==========================================
+// ESTRUCTURAS Y CLASES PRINCIPALES
+// ==========================================
+
+class Entidad {
+protected:
+    string nombre;
+    float vida;
+    float vidaMaxima;
+    float ataque;
+
+public:
+    Entidad(string n, float v, float at) {
+        nombre = n;
+        vidaMaxima = v;
+        vida = v;
+        ataque = at;
+    }
+
+    string getNombre() { return nombre; }
+    float getVida() { return vida; }
+    float getAtaque() { return ataque; }
+
+    void recibirDanio(float danio) {
+        vida -= danio;
+        if (vida < 0.0f) vida = 0.0f;
+    }
+
+    bool estaVivo() {
+        return vida > 0.0f;
+    }
+
+    void restaurarVida(float cantidad) {
+        vida += cantidad;
+        if (vida > vidaMaxima) vida = vidaMaxima;
+    }
+};
+
+class Jugador : public Entidad {
+private:
+    int pociones;
+    int salasCompletadas;
+
+public:
+    Jugador(string n) : Entidad(n, 100.0f, 15.0f) {
+        pociones = 3;
+        salasCompletadas = 0;
+    }
+
+    int getPociones() { return pociones; }
+    int getSalas() { return salasCompletadas; }
+    
+    void incrementarSalas() { salasCompletadas++; }
+    
+    void usarPocion() {
+        if (pociones > 0) {
+            restaurarVida(40.0f);
+            pociones--;
+            cout << "\n[!] Usaste una pocion. Recuperas 40 de vida.\n";
+        } else {
+            cout << "\n[!] No te quedan pociones.\n";
+        }
+    }
+
+    void encontrarPocion() {
+        pociones++;
+        cout << "\n[+] ¡Encontraste una pocion en el suelo!\n";
+    }
+};
+
+class Enemigo : public Entidad {
+public:
+    Enemigo(string n, float v, float at) : Entidad(n, v, at) {}
+};
+
+// ==========================================
+// LÓGICA DEL JUEGO
+// ==========================================
+
+class Juego {
+private:
+    Jugador* jugador;
+    
+    Enemigo generarEnemigoAleatorio() {
+        int tipo = rand() % 3;
+        if (tipo == 0) return Enemigo("Goblin", 40.0f, 8.0f);
+        if (tipo == 1) return Enemigo("Esqueleto", 55.0f, 12.0f);
+        return Enemigo("Orco", 80.0f, 16.0f);
+    }
+
+    void combatir(Enemigo& enemigo) {
+        cout << "\n--- ¡UN " << enemigo.getNombre() << " SALVAJE APARECIO! ---\n";
+
+        while (jugador->estaVivo() && enemigo.estaVivo()) {
+            cout << "\n========================================\n";
+            cout << " " << jugador->getNombre() << " (HP: " << jugador->getVida() << ") vs " 
+                 << enemigo.getNombre() << " (HP: " << enemigo.getVida() << ")\n";
+            cout << "========================================\n";
+            cout << "1. Atacar\n";
+            cout << "2. Usar Pocion (" << jugador->getPociones() << " restantes)\n";
+            cout << "Elige tu accion: ";
+            
+            int opcion;
+            cin >> opcion;
+
+            if (opcion == 1) {
+                // Turno del jugador
+                float danioJugador = jugador->getAtaque() + (rand() % 5);
+                enemigo.recibirDanio(danioJugador);
+                cout << "\n-> ¡Atacaste al " << enemigo.getNombre() << " y le hiciste " << danioJugador << " de danio!\n";
+                
+                // Turno del enemigo (si sigue vivo)
+                if (enemigo.estaVivo()) {
+                    float danioEnemigo = enemigo.getAtaque() + (rand() % 4);
+                    jugador->recibirDanio(danioEnemigo);
+                    cout << "-> ¡El " << enemigo.getNombre() << " te devolvio el golpe haciendo " << danioEnemigo << " de danio!\n";
+                }
+            } 
+            else if (opcion == 2) {
+                jugador->usarPocion();
+                // El enemigo ataca mientras te curas
+                float danioEnemigo = enemigo.getAtaque() + (rand() % 4);
+                jugador->recibirDanio(danioEnemigo);
+                cout << "-> Mientras te curabas, el " << enemigo.getNombre() << " te ataco haciendo " << danioEnemigo << " de danio!\n";
+            } 
+            else {
+                cout << "\n[!] Accion invalida. Perdiste el turno por dudar.\n";
+                float danioEnemigo = enemigo.getAtaque() + (rand() % 4);
+                jugador->recibirDanio(danioEnemigo);
+                cout << "-> El " << enemigo.getNombre() << " aprovecho tu distraccion y te hizo " << danioEnemigo << " de danio!\n";
+            }
+        }
+
+        if (jugador->estaVivo()) {
+            cout << "\n[+] ¡Derrotaste al " << enemigo.getNombre() << "!\n";
+            jugador->incrementarSalas();
+            
+            // Recompensa aleatoria
+            if (rand() % 100 < 40) { // 40% de probabilidad
+                jugador->encontrarPocion();
+            }
+        }
+    }
+
+public:
+    Juego() {
+        srand(time(0));
+        jugador = nullptr;
+    }
+
+    ~Juego() {
+        delete jugador;
+    }
+
+    void iniciar() {
+        cout << "========================================\n";
+        cout << "   BIENVENIDO A LAS MAZMORRAS DE C++    \n";
+        cout << "========================================\n";
+        cout << "Introduce el nombre de tu heroe: ";
+        string nombreHeroe;
+        cin >> nombreHeroe;
+
+        jugador = new Jugador(nombreHeroe);
+
+        cout << "\n¡Perfecto, " << jugador->getNombre() << "! Tu aventura comienza ahora...\n";
+
+        while (jugador->estaVivo()) {
+            cout << "\n----------------------------------------\n";
+            cout << "Te encuentras en la entrada de la Sala #" << jugador->getSalas() + 1 << ".\n";
+            cout << "1. Avanzar a la siguiente sala\n";
+            cout << "2. Ver estado actual\n";
+            cout << "3. Huir de la mazmorra (Salir del juego)\n";
+            cout << "Elige tu opcion: ";
+            
+            int eleccion;
+            cin >> eleccion;
+
+            if (eleccion == 1) {
+                int evento = rand() % 100;
+                if (evento < 70) {
+                    // Aparece enemigo
+                    Enemigo enemigo = generarEnemigoAleatorio();
+                    combatir(enemigo);
+                } else if (evento < 90) {
+                    // Sala vacía con poción
+                    cout << "\nLa sala esta extrañamente silenciosa...";
+                    jugador->encontrarPocion();
+                    jugador->incrementarSalas();
+                } else {
+                    // Sala completamente vacía
+                    cout << "\nEntraste a una sala vacia. No hay peligro aqui. Decides avanzar.\n";
+                    jugador->incrementarSalas();
+                }
+            } 
+            else if (eleccion == 2) {
+                cout << "\n=== ESTADO DE " << jugador->getNombre() << " ===\n";
+                cout << "- Vida: " << jugador->getVida() << "\n";
+                cout << "- Pociones: " << jugador->getPociones() << "\n";
+                cout << "- Salas limpiadas: " << jugador->getSalas() << "\n";
+                cout << "=============================\n";
+            } 
+            else if (eleccion == 3) {
+                cout << "\nDecidiste huir como un cobarde... pero viviras un dia mas.\n";
+                break;
+            } 
+            else {
+                cout << "\n[!] Opcion no valida.\n";
+            }
+        }
+
+        cout << "\n========================================\n";
+        cout << "               GAME OVER                \n";
+        cout << "========================================\n";
+        cout << "Heroe: " << jugador->getNombre() << "\n";
+        cout << "Salas completadas con exito: " << jugador->getSalas() << "\n";
+        cout << "Gracias por jugar.\n";
+    }
+};
+
+// ==========================================
+// FUNCIÓN PRINCIPAL
+// ==========================================
+int main() {
+    Juego partida;
+    partida.iniciar();
+    return 0;
+}
